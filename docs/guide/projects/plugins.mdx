@@ -1,0 +1,65 @@
+---
+title: 插件与日志
+description: 管理目标应用的插件，并在日志查看器中定位问题。
+icon: Braces
+---
+
+插件是 LSPilot 改变目标应用行为的载体。这一页讲**怎么管**（开关、创建、编辑、删除）与**怎么看日志**；怎么写见[插件开发](/plugin/app/introduction)。
+
+## 插件列表
+
+**应用详情 → 插件** 列出该应用插件目录下的全部插件：
+
+| 信息 / 操作 | 说明 |
+| --- | --- |
+| 名称 / 作者 / 版本 / 描述 | 来自 `info.prop` |
+| 启用开关 | 运行时即时生效，无需重启目标应用 |
+| 创建插件 | 填写名称、作者、版本、描述，自动生成目录与模板 |
+| 编辑插件信息 | 修改 `info.prop` |
+| 删除插件 | 递归删除插件目录，不可撤销 |
+| 点击卡片 | 进入代码编辑器，编辑 `main.java` |
+
+<Callout type="warn">
+  开关可以热切换，但**修改 `main.java` 的内容不会热重载**。脚本只在加载时被解释执行一次，改完脚本必须强制停止并重启目标应用。
+</Callout>
+
+## 日志查看器
+
+日志查看器按插件聚合该应用的全部日志文件：
+
+| 目录 | 内容 |
+| --- | --- |
+| `<插件目录>/log/yyyyMMdd.log` | 脚本 `log(...)` 输出，**按天滚动追加**，行格式 `时间 [级别] 内容` |
+| `<插件目录>/error/yyyyMMdd_HHmmss.log` | 加载或运行错误，每次错误一个文件，含时间、宿主版本、插件名、错误消息与堆栈 |
+
+可用操作：
+
+- 下拉刷新重新扫描；
+- 长按单个文件删除；
+- 一键删除该插件的全部日志；
+- 把日志文件交给其他应用打开；
+- 长按插件卡片用其他应用打开该插件的 `main.java`。
+
+设置中可以调整「显示无日志插件」与「只显示最近十条文件」。
+
+## 目录速查
+
+```text
+/storage/emulated/0/Android/media/<目标应用包名>/LSPilot/Plugin/我的插件/
+├── info.prop     # 元信息（必需）
+├── main.java     # 脚本（必需）
+├── .enabled      # 插件开关（存在 = 启用）
+├── lib/          # jar / dex / aar / apk 依赖
+├── log/          # 运行日志
+└── error/        # 错误日志
+```
+
+完整目录说明见[目录与数据](/ref/files)。
+
+## 相关
+
+<Cards>
+  <Card icon="braces" title="插件系统总览" description="插件结构、info.prop 与识别条件" href="/plugin/app/introduction" />
+  <Card icon="bug" title="调试与排错" description="日志、错误文件与常见问题" href="/plugin/app/debugging" />
+  <Card icon="folder" title="应用与作用域" description="注入开关与进程模式" href="/guide/projects/apps" />
+</Cards>

@@ -1,0 +1,28 @@
+---
+title: 项目
+description: 注入目标应用进程的 BeanShell 脚本：从第一个插件到完整 API。
+icon: Braces
+---
+
+项目插件运行在**目标应用进程**内，用来 Hook 方法、改参数、改返回值。先读前三页，再按需查 API。
+
+<Cards>
+  <Card icon="puzzle" title="插件系统总览" description="插件结构、info.prop 与识别条件" href="/plugin/app/introduction" />
+  <Card icon="rocket" title="编写第一个插件" description="从空目录到跑通验证" href="/plugin/app/getting-started" />
+  <Card icon="anchor" title="生命周期与全局 API" description="加载卸载、onLoad / onUnload、全局变量与函数" href="/plugin/app/lifecycle" />
+</Cards>
+
+## API 参考
+
+| 页面 | 内容 |
+| --- | --- |
+| [Hook API](/plugin/app/api-hook) | before / after / replace 三种模式与 HookParam |
+| [反射 API](/plugin/app/api-reflection) | 字段读写、方法调用、构造实例、附加字段 |
+| [DexKit API](/plugin/app/api-dexkit) | 按特征定位混淆类、方法与字段 |
+
+## 实战
+
+| 页面 | 内容 |
+| --- | --- |
+| [示例代码](/plugin/app/examples) | 常见场景的完整脚本 |
+| [调试与排错](/plugin/app/debugging) | 日志、错误文件与常见问题 |

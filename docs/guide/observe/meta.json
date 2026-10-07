@@ -1,0 +1,9 @@
+{
+  "title": "观测",
+  "icon": "Gauge",
+  "pages": [
+    "index",
+    "inspector",
+    "performance"
+  ]
+}

@@ -1,0 +1,210 @@
+---
+title: 示例代码
+description: 常见逆向场景的完整插件脚本。
+icon: CodeXml
+---
+
+以下示例都以 `main.java` 的形式给出。类名与字段名请根据实际反编译结果替换。
+
+## 1. 替换方法返回值
+
+```java
+// 用 findMethodExact 拿到方法对象后替换返回值
+Class clazz = findClassOrNull("com.example.core.Config", hostLoader);
+
+if (clazz == null) {
+    log("未找到 Config");
+} else {
+    hookReplace(findMethodExact(clazz, "isDebug"), "demo_isdebug", param -> {
+        log("isDebug 被调用，让代码走进调试分支");
+        param.result = true;
+    });
+}
+```
+
+如果 `isDebug` 有重载，改用精确签名：
+
+```java
+hookReplace(findMethodExact(clazz, "isDebug", String.class), "demo_isdebug2", param -> {
+    param.result = true;
+});
+```
+
+## 2. 修改方法参数
+
+```java
+Class clazz = findClassOrNull("com.example.net.ApiClient", hostLoader);
+
+if (clazz != null) {
+    hookBefore(findMethodExact(clazz, "request", String.class), "demo_request", param -> {
+        String url = (String) param.arg(0);
+        log("原始 URL:", url);
+        param.setArg(0, url.replace("http://", "https://"));
+    });
+}
+```
+
+## 3. 在 after 里修正返回值
+
+```java
+Class clazz = findClassOrNull("com.example.net.ApiClient", hostLoader);
+
+if (clazz != null) {
+    hookMethodAfter(clazz, "getTimeout", param -> {
+        Object value = param.result;
+        if (value instanceof Integer && ((Integer) value) < 30) {
+            log("超时过短:", value, "-> 30");
+            param.result = 30;
+        }
+    });
+}
+}
+```
+
+## 4. 追踪调用链
+
+```java
+Class clazz = findClassOrNull("com.example.core.Session", hostLoader);
+
+if (clazz != null) {
+    hookBefore(findMethodExact(clazz, "refresh"), "demo_refresh", param -> {
+        log("refresh 被调用，实例:", param.thisObject);
+        // 打印当前线程堆栈，定位是谁触发的
+        for (Object frame : Thread.currentThread().getStackTrace()) {
+            log("  at", frame);
+        }
+    });
+}
+```
+
+## 5. 用 DexKit 定位混淆类
+
+```java
+// 只知道日志里出现了「trade_result」与回调字符串
+Class targetClazz = findClass()
+    .pkg("com.example")
+    .usingStrings("trade_result", "requestNo")
+    .single();
+
+if (targetClazz == null) {
+    log("未定位到目标类，请调整特征");
+} else {
+    log("定位到:", targetClazz.getName());
+
+    Object onResult = findMethod()
+        .inClass(targetClazz)
+        .paramCount(2)
+        .single();
+
+    if (onResult != null) {
+        hookAfter(onResult, "demo_trade", param -> {
+            log("回调参数:", param.args);
+        });
+    }
+}
+```
+
+## 6. 用附加字段做调用计数
+
+```java
+Class clazz = findClassOrNull("com.example.ui.MainActivity", hostLoader);
+
+if (clazz != null) {
+    hookMethodBefore(clazz, "onClick", param -> {
+        Object obj = param.thisObject;
+        Object old = getAdditionalField(obj, "clickCount");
+        int count = (old instanceof Integer) ? ((Integer) old) + 1 : 1;
+        setAdditionalField(obj, "clickCount", count);
+        log("点击次数:", count);
+    });
+}
+```
+
+## 7. 动态加载依赖
+
+把 jar / dex / aar / apk 放进插件目录的 `lib/`，然后：
+
+```java
+// 路径以 / 开头视为绝对路径，否则相对插件目录；扩展名可省略
+loadDex("lib/patch.dex");
+loadAar("lib/module.aar");
+loadJar("lib/utils.jar");
+loadApk("lib/plugin.apk");
+
+// 加载后可以直接 import 其中的类
+import com.example.patch.Helper;
+Helper.doSomething();
+```
+
+也可以把另一段脚本拆成文件用 `loadJava` 执行（不能是 `main.java` 自身）：
+
+```java
+loadJava("lib/extra.java");
+```
+
+## 8. 用 onUnload 清理 Hook
+
+```java
+Object handle = null;
+
+Class clazz = findClassOrNull("com.example.target.Activity", hostLoader);
+if (clazz != null) {
+    handle = hookMethodAfter(clazz, "onResume", "demo_resume", param -> {
+        log("onResume");
+    });
+}
+
+onUnload() {
+    if (handle != null) {
+        handle.unhook();
+        log("已解除 Hook");
+    }
+}
+```
+
+## 9. 带异常保护的 Hook
+
+回调里的异常可能影响宿主，建议统一加保护：
+
+```java
+Class clazz = findClassOrNull("com.example.Target", hostLoader);
+
+if (clazz != null) {
+    hookBefore(findMethodExact(clazz, "doWork"), "demo_work", param -> {
+        try {
+            // 你的逻辑
+            log("doWork 参数个数:", param.args.length);
+        } catch (Throwable t) {
+            log("Hook 回调异常:", t);
+        }
+    });
+}
+```
+
+## 10. 修改静态字段（开关类逻辑）
+
+```java
+Class clazz = findClassOrNull("com.example.config.AppConfig", hostLoader);
+
+if (clazz != null) {
+    try {
+        log("修改前:", getStaticBooleanField(clazz, "DEBUG"));
+        setStaticBooleanField(clazz, "DEBUG", true);
+        setStaticIntField(clazz, "MAX_RETRY", 99);
+    } catch (Throwable t) {
+        log("静态字段修改失败:", t);
+    }
+}
+```
+
+## 通用建议
+
+- **顶层做一次查找**，把 Class / Method 缓存到变量里，不要在回调中反复查找。
+- **回调要快**：不要在主线程回调里做网络或文件 IO。
+- **加 try/catch**：Hook 回调中的异常可能影响目标应用。
+- **给 id 加前缀**：避免与其他插件冲突。
+- **用日志而不是猜测**：先打印参数与返回值，确认逻辑后再修改。
+
+<Callout type="warn">
+  以上示例仅用于学习与研究。请遵守当地法律法规与目标应用的服务条款。
+</Callout>

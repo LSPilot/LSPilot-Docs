@@ -1,0 +1,12 @@
+{
+  "title": "使用指南",
+  "icon": "BookOpen",
+  "pages": [
+    "index",
+    "ai",
+    "projects",
+    "observe",
+    "environment",
+    "custom"
+  ]
+}

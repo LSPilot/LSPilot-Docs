@@ -1,0 +1,10 @@
+{
+  "title": "环境",
+  "icon": "SquareTerminal",
+  "pages": [
+    "index",
+    "terminal",
+    "browser",
+    "storage"
+  ]
+}

@@ -1,0 +1,176 @@
+---
+title: Hook API
+description: before / after / replace 三种 Hook 模式，以及 HookParam 的完整用法。
+icon: Anchor
+---
+
+Hook 是插件最常用的能力：在目标方法执行前后插入逻辑，或整个替换它。
+
+## 三种模式
+
+| 模式 | 函数 | 时机 | 典型用途 |
+| --- | --- | --- | --- |
+| 调用前 | `hookBefore` / `hookMethodBefore` | 原方法执行之前 | 改参数、打日志、直接返回 |
+| 调用后 | `hookAfter` / `hookMethodAfter` | 原方法执行之后 | 改返回值、观察结果 |
+| 完全替换 | `hookReplace` | 替代原方法 | 替换返回值、屏蔽原实现以便观察 |
+
+所有回调接收一个 `HookParam`，用 BeanShell 的 lambda 写法即可：
+
+```java
+hookMethodAfter(clazz, "getCode", param -> {
+    log("原始返回值:", param.result);
+    param.result = 999;
+});
+```
+
+## HookParam
+
+| 成员 | 类型 | 说明 |
+| --- | --- | --- |
+| `thisObject` | Object | 方法所属实例；静态方法为 `null` |
+| `args` | Object[] | 参数数组，可直接读写 |
+| `arg(index)` | Object | 按索引取参数 |
+| `setArg(index, value)` | — | 按索引改参数 |
+| `result` | Object | 返回值，可读写 |
+| `throwable` | Throwable | 抛出的异常，可读写 |
+| `hasThrowable` | boolean | 是否捕获到异常 |
+| `skipWith(value)` | — | 跳过原方法并指定返回值 |
+
+<Callout type="info">
+  `arg` / `setArg` / `skipWith` 都是 **HookParam 的实例方法**，必须写成 `param.setArg(0, value)`。不存在全局的 `setArg(param, 0, value)`。
+</Callout>
+
+### 设置 result 就等于跳过原方法
+
+在 `before` 回调里给 `param.result` 赋值后，原方法**不会**再执行，调用方直接拿到你设置的值：
+
+```java
+hookBefore(findMethodExact(clazz, "isDebug"), param -> {
+    param.result = true;   // 原方法被跳过
+});
+```
+
+这等价于调用 `param.skipWith(true)`。
+
+## 函数清单
+
+### 基于 Member（方法或构造器对象）
+
+```java
+hookBefore(Member member, JavaHookCallback callback)
+hookBefore(Member member, String id, JavaHookCallback callback)
+hookAfter(Member member, JavaHookCallback callback)
+hookAfter(Member member, String id, JavaHookCallback callback)
+hookReplace(Member member, JavaHookCallback callback)
+hookReplace(Member member, String id, JavaHookCallback callback)
+replaceHook(String id, JavaHookCallback callback)
+unhook(String id)
+```
+
+### 基于 Class + 方法名
+
+```java
+hookMethodBefore(Class clazz, String methodName, JavaHookCallback callback)
+hookMethodAfter(Class clazz, String methodName, JavaHookCallback callback)
+hookAllMethodsBefore(Class clazz, String methodName, JavaHookCallback callback)
+hookAllMethodsAfter(Class clazz, String methodName, JavaHookCallback callback)
+hookAllConstructorsBefore(Class clazz, JavaHookCallback callback)
+```
+
+注意：
+
+- `hookMethodBefore` / `hookMethodAfter` 只挂**第一个同名方法**（按 `declaredMethods` 顺序）。同名重载需要用 `hookAllMethodsBefore`，或自己用 `findMethodExact` 精确定位后再 `hookBefore`。
+- 方法不存在时抛 `NoSuchMethodException`，脚本会被中断并写入错误日志。
+- **不存在** `hookAllConstructorsAfter`、`hookMethodReplace`、`hookConstructor*` 等函数。
+
+## 带 id 的 Hook
+
+给 Hook 起一个 id，之后可以替换或卸载它：
+
+```java
+hookBefore(findMethodExact(clazz, "onCreate"), "demo_oncreate", param -> {
+    log("原始回调");
+});
+
+// 之后可以卸载
+unhook("demo_oncreate");
+```
+
+### replaceHook 的驱动差异
+
+<Callout type="warn">
+  `replaceHook(id, callback)` 的行为取决于宿主使用的框架接口：在 **API 82（Xposed 兼容层）** 下是真正的热替换；在 **API 102（libxposed）** 下新回调不会被挂上，效果等同于 `unhook(id)`。需要兼容两种环境时，请改用「先 `unhook` 再重新 `hook`」的写法。
+</Callout>
+
+### id 是全局键
+
+Hook 的 id 在整个宿主进程内唯一，**不同插件使用相同 id 会互相影响**：
+
+- 后挂的同 id Hook 会覆盖或卸载先前的；
+- 建议使用带插件前缀的 id，例如 `myplugin_isvip`。
+
+## 批量 Hook
+
+```java
+// 所有同名重载
+hookAllMethodsBefore(clazz, "handleMessage", param -> {
+    log("参数个数:", param.args.length);
+});
+
+// 所有构造器
+hookAllConstructorsBefore(clazz, param -> {
+    log("构造实例:", param.thisObject);
+});
+```
+
+## 精确 Hook 单个重载
+
+```java
+import java.lang.reflect.Method;
+
+Method m = findMethodExact(clazz, "setData", String.class, int.class);
+hookBefore(m, "myplugin_setdata", param -> {
+    param.setArg(0, "modified");
+});
+```
+
+`findMethodExact` 的参数类型是 Java 的 `Class` 对象，需要写全；`findMethodBestMatch` 则可以按实际参数值自动匹配。
+
+## 返回值与异常
+
+```java
+hookAfter(findMethodExact(clazz, "load"), param -> {
+    if (param.hasThrowable) {
+        log("原方法抛异常:", param.throwable);
+        param.throwable = null;   // 吞掉异常
+        param.result = null;
+    }
+});
+```
+
+## 注意事项
+
+- **卸载插件不会自动解除 Hook**。请在 `onUnload()` 里显式 `unhook(...)`，或保存 `HookHandle` 后调用 `handle.unhook()`。
+- **回调里的异常不会被 LSPilot 自动吞掉**。在 libxposed（API 102）环境下，`before` 回调抛出的异常会向上传播。请自行 `try/catch`。
+- 回调通常在宿主主线程执行，**不要做耗时操作**，也不要在回调里调用被 Hook 的同一个方法（死循环）。
+- 只 Hook 必要的方法：每个 Hook 都有性能开销。
+- Kotlin 扩展形式（`member.hook { }`、`clazz.hookMethod(...)`）**只在 LSPilot 内部代码中可用，脚本里不可用**。
+
+## 完整示例
+
+```java
+// 拦截登录参数并打印
+Class clazz = findClassOrNull("com.example.login.LoginManager", hostLoader);
+if (clazz != null) {
+    hookBefore(findMethodExact(clazz, "login", String.class, String.class), "demo_login", param -> {
+        try {
+            String user = (String) param.arg(0);
+            String pwd = (String) param.arg(1);
+            log("登录尝试:", user, "/", pwd);
+            param.setArg(1, "hooked");
+        } catch (Throwable t) {
+            log("回调出错:", t);
+        }
+    });
+}
+```

@@ -1,0 +1,70 @@
+---
+title: 目录与数据
+description: LSPilot 的插件、日志、配置与缓存分别存放在哪里。
+icon: HardDrive
+---
+
+LSPilot 的数据分成三处：**目标应用的媒体目录**（插件与日志）、**模块自身的私有目录**（配置与数据）、**公共下载目录**（导出文件）。
+
+## 目标应用目录
+
+每个目标应用有独立分区，路径中的 `<包名>` 是**被 Hook 的应用包名**，不是 LSPilot 自己的包名。
+
+```text
+/storage/emulated/0/Android/media/<目标应用包名>/LSPilot/
+├── .enabled            # 应用级注入开关（存在 = 注入）
+├── .process_mode       # 注入进程：0 主进程 / 1 子进程 / 2 所有进程
+└── Plugin/
+    └── 我的插件/
+        ├── info.prop   # 元信息：name / author / version / desc / id / pkg
+        ├── main.java   # 脚本入口（BeanShell）
+        ├── .enabled    # 插件开关（存在 = 启用）
+        ├── lib/        # 可选：jar / dex / aar / apk 依赖
+        ├── log/        # 运行日志，按天滚动：yyyyMMdd.log
+        └── error/      # 错误日志：yyyyMMdd_HHmmss.log
+```
+
+<Callout type="warn">
+  `main.java` 与 `info.prop` 缺任意一个，该目录都不会被识别为插件。
+</Callout>
+
+## 模块私有目录
+
+```text
+/data/data/me.yun.lspilot/
+├── files/
+│   ├── mcp_plugins/<插件>/       # MCP 插件：main.java + info.prop + .enabled + .tools_disabled
+│   ├── local/                    # 终端环境（Ubuntu rootfs、bin、lib）
+│   └── global_apks/<uuid>.apk    # 自定义项目导入的 APK 副本
+├── databases/                    # AI 对话历史（会话与消息）
+├── shared_prefs/                 # 配置：MCP 服务器、Skills 开关、提示词、工具开关等
+└── cache/
+    ├── apk_cache/                # AI 分析时复制的目标 APK
+    ├── jdt/                      # 代码编辑器索引缓存
+    └── lspilot_plugins/          # 打包模式下解压出来的内置插件
+```
+
+## 导出目录
+
+```text
+/storage/emulated/0/Download/LSPilot/
+└── lspilot_perf_yyyyMMdd_HHmmss.json   # 性能日志导出
+```
+
+## 打包模式下的差异
+
+当模块以**打包模式**运行时（模块 APK 内存在 `assets/plugin/config.yaml`），插件不读外部媒体目录，而是从模块 APK 解压到宿主应用的缓存目录：
+
+```text
+<宿主应用 cacheDir>/lspilot_plugins/
+```
+
+内置插件默认启用。每次初始化都会重新解压，因此该目录下的运行期产物（日志、错误）会被清空。
+
+## 清理与迁移
+
+| 想清理 | 位置 |
+| --- | --- |
+| 插件与日志 | 应用详情 → 插件 / 日志，或直接删除媒体目录下的插件目录 |
+| 聊天记录、缓存、终端环境 | 设置 → 存储空间 |
+| MCP 服务器、Skills、提示词 | 设置 → 功能拓展（或清除应用数据） |

@@ -1,0 +1,8 @@
+{
+  "title": "帮助",
+  "icon": "MessageCircleQuestionMark",
+  "pages": [
+    "faq",
+    "troubleshooting"
+  ]
+}

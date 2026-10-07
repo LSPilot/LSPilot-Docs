@@ -1,0 +1,202 @@
+---
+title: 编写 MCP 插件
+description: 用 BeanShell 脚本把常用分析流程封装成 AI 可以调用的工具。
+icon: Blocks
+---
+
+## 什么是 MCP 插件
+
+MCP 插件是一段运行在 **LSPilot 自身进程**里的 BeanShell 脚本。脚本在顶层用 `addTool(...)` 声明工具，声明后的工具会被注入 AI 的工具列表，AI 在对话中就能直接调用它。
+
+它和另外两个概念的区别：
+
+| | 项目插件 | MCP 插件 | 外部 MCP 服务器 |
+| --- | --- | --- | --- |
+| 运行位置 | 目标应用进程 | LSPilot 进程 | 远程服务器 |
+| 入口文件 | `main.java` | `main.java` | — |
+| 存放位置 | `Android/media/<包名>/LSPilot/Plugin/` | 应用私有目录 `files/mcp_plugins/` | 本地配置 |
+| 对 AI 的作用 | 间接（Hook 生效后改变行为） | **直接提供工具** | **直接提供工具** |
+| 函数名前缀 | — | `plugin__` | `mcp__` |
+
+## 插件目录
+
+```text
+/data/data/me.yun.lspilot/files/mcp_plugins/
+└── my_tools/
+    ├── main.java          # 脚本入口（必需）
+    ├── info.prop          # 元信息（必需）
+    ├── .enabled           # 启用标记，存在即启用
+    └── .tools_disabled    # 工具禁用名单，每行一个函数名
+```
+
+与项目插件一样，**只有同时存在 `main.java` 与 `info.prop` 的目录才会被识别**。
+
+### info.prop
+
+```properties
+name=我的工具集
+author=me
+version=1.0.0
+desc=把常用的 dex 检索流程封装成工具
+```
+
+| 键 | 说明 |
+| --- | --- |
+| `name` | 显示名；缺省时使用目录名 |
+| `author` | 作者 |
+| `version` | 版本号 |
+| `desc` | 描述；也兼容 `description` 键 |
+
+## 创建插件
+
+<Steps>
+  <Step>进入**设置 → 功能拓展 → MCP 拓展 → 插件**，点击右下角加号。</Step>
+  <Step>填写名称、作者、版本与描述。名称只允许字母、数字、下划线与连字符。</Step>
+  <Step>确认后 LSPilot 会生成目录、`info.prop` 与一份带注释的 `main.java` 模板。</Step>
+  <Step>在插件卡片上打开开关，工具才会注入 AI。</Step>
+</Steps>
+
+<Callout type="warn">
+  新建的 MCP 插件**默认不启用**。未启用时工具不会出现在 AI 的工具列表中（但可以在插件编辑界面里手动试运行）。
+</Callout>
+
+插件目录名会经过规范化：中文转写为拼音、非法字符压成下划线，以保证 AI 侧的函数名合法。
+
+## 预置变量
+
+脚本可直接使用：
+
+| 变量 | 类型 | 说明 |
+| --- | --- | --- |
+| `pluginName` | String | 插件名 |
+| `pluginAuthor` | String | 作者 |
+| `pluginVersion` | String | 版本 |
+| `pluginPath` | String | 插件目录绝对路径 |
+| `currentApkPath` | String | **AI 对话当前目标应用**的安装包路径（`sourceDir`） |
+| `currentDexPath` | String | 当前目标应用可读的 dex 路径 |
+| `pluginContext` | Context | LSPilot 应用的 Context |
+| `hostContext` | Context | 与 `pluginContext` 相同 |
+
+`currentApkPath` 与 `currentDexPath` 会**在每次工具调用前刷新**，因此切换会话目标应用后不需要重新加载插件。
+
+## 声明工具
+
+```java
+addTool(名字, 简介, 回调函数名)
+    .param(参数名, 类型, 说明, 是否必填)
+    .param(参数名, 类型, 说明);        // 省略必填，默认非必填
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| 名字 | AI 可见的工具短名 |
+| 简介 | 工具描述，会展示给 AI |
+| 回调函数名 | 脚本中定义的 BeanShell 函数名 |
+| 参数类型 | `string` / `integer` / `number` / `boolean`，默认 `string` |
+
+无参数工具直接写 `addTool(...)` 即可；`param(...)` 有多个重载，可以只写参数名。
+
+### 回调约定
+
+- 回调可以接收一个参数：AI 传入的 **arguments JSON 字符串**；也可以定义为无参函数。
+- 返回值会被转换成字符串返回给 AI；返回 `null` 时记为 `ok`。
+- 回调中抛出的异常会被捕获并以错误文本返回，不会导致插件崩溃。
+
+```java
+addTool("read_dex_class", "读取目标 dex 中指定类的内容", "onReadDexClass")
+    .param("className", "string", "完整类名，如 com.example.MainActivity", true)
+    .param("maxLines", "integer", "最多返回行数", false);
+
+onReadDexClass(args) {
+    log("收到参数:" + args);
+    return "apk = " + currentApkPath + "\ndex = " + currentDexPath;
+}
+```
+
+## 动态加载依赖
+
+| 函数 | 说明 |
+| --- | --- |
+| `loadDex(path)` | 加载 `.dex` |
+| `loadAar(path)` | 加载 `.aar`（classes.jar 与 libs 下的 jar 会转成 dex） |
+| `loadApk(path)` | 加载 `.apk`（含 so 解包） |
+
+路径规则与项目插件一致：以 `/` 开头视为绝对路径，否则相对插件目录，扩展名可以省略。加载后即可直接 `import` 其中的类。
+
+MCP 插件**没有** `loadJar` 与 `loadJava`。
+
+## 日志
+
+```java
+log("消息");   // 输出到 logcat，tag 为 McpPlugin，前缀为插件名
+```
+
+## 工具级开关
+
+插件卡片上的开关控制**整个插件**（`.enabled` 标记文件）。
+
+点击卡片进入工具抽屉，可以逐项开关单个工具；被禁用的工具名会记录在插件目录的 `.tools_disabled` 文件中（每行一个函数名）。抽屉菜单还提供：
+
+- **重新加载**：重新解释执行 `main.java`，用于脚本改动后刷新；
+- **全部开启 / 全部关闭**：批量切换该插件的全部工具。
+
+## 试运行
+
+工具抽屉中每行的**运行**按钮可以手动执行工具：
+
+- 无参数工具直接执行；
+- 有参数工具弹出参数表单（必填项带星号，按类型转换）；
+- 结果使用与 AI 对话相同的输出查看器展示。
+
+## 完整示例
+
+```java
+// main.java —— 一个读取当前目标应用信息并提供文件读取能力的工具集
+
+addTool("current_target", "获取当前目标应用的安装包与 dex 路径", "onCurrentTarget");
+
+addTool("read_target_file", "读取目标设备上的文本文件", "onReadFile")
+    .param("path", "string", "文件的绝对路径", true)
+    .param("maxChars", "integer", "最多返回的字符数", false);
+
+onCurrentTarget(args) {
+    return "包路径: " + currentApkPath + "\n" + "dex 路径: " + currentDexPath;
+}
+
+onReadFile(args) {
+    try {
+        // args 是 JSON 字符串，这里做简单提取
+        String path = args;
+        if (path.contains("\"path\"")) {
+            path = path.substring(path.indexOf("\"path\""));
+        }
+        log("读取:" + path);
+        return "请求路径 = " + path;
+    } catch (Throwable t) {
+        return "读取失败: " + t;
+    }
+}
+```
+
+<Callout type="info">
+  实际解析 JSON 时建议使用 `org.json.JSONObject`，脚本运行在 LSPilot 进程内，可以直接使用 Android 平台自带的 JSON 实现。
+</Callout>
+
+## 函数名与调用
+
+工具注入 AI 时使用的函数名格式为：
+
+```text
+plugin__<插件目录名>__<工具名>
+```
+
+其中插件目录名与工具名都会做规范化处理（中文转拼音、非法字符压成下划线）。调用时 LSPilot 直接按注册表正向匹配函数名，不做字符串反解，因此目录名或工具名中包含双下划线也没有问题。
+
+在对话中，插件工具的图标与命名空间标签会显示插件名，便于区分来源。
+
+## 注意事项
+
+- MCP 插件**不实现 MCP 协议**，也不会注入目标应用；需要 Hook 请使用[项目插件](/plugin/app/introduction)。
+- 插件在 LSPilot 进程内运行，可以访问 LSPilot 自身的 Context 与文件。
+- 修改 `main.java` 后需要在工具抽屉里点**重新加载**，或关闭再打开插件开关。
+- 工具描述与参数说明会直接进入模型的上下文，写得清楚一点，AI 才用得对。

@@ -1,0 +1,132 @@
+---
+title: 常见问题
+description: 安装、激活、插件、MCP、AI 与终端的常见问题与解答。
+icon: MessageCircleQuestionMark
+---
+
+按主题整理的常见问题。如果你的问题是「某个功能不工作」，先看[排错手册](/help/troubleshooting)会更快——那里按症状给出了排查顺序。
+
+## 安装与激活
+
+<Accordions>
+  <Accordion title="在 LSPosed 中看不到 LSPilot 模块">
+    确认 APK 已完整安装、LSPosed 版本与设备架构匹配（LSPilot 只提供 arm64-v8a），必要时重启设备后再查看模块列表。
+  </Accordion>
+  <Accordion title="支持哪些 Android 版本与架构">
+    需要 Android 14.0 及以上（模块 minSdk 为 API 33），架构为 arm64-v8a。不支持 x86 / x86_64 与模拟器。
+  </Accordion>
+  <Accordion title="模块已启用，但目标应用没有反应">
+    依次检查：LSPosed 作用域是否勾选该应用；应用是否已强制停止并重启；应用详情页的注入进程模式是否覆盖了目标进程（主进程 / 子进程 / 所有进程）。
+  </Accordion>
+  <Accordion title="如何确认模块已经激活">
+    打开 LSPilot 首页，激活成功会显示「已通过 Lsp 102 激活」或「已通过 Xp 82 激活」；显示「未检测到 Xposed 框架」说明模块未生效。
+  </Accordion>
+  <Accordion title="必须授予哪些权限">
+    「所有文件访问权限」与「读取应用列表」是必需的；通知、麦克风、悬浮窗、安装未知应用均为可选，可以在需要时再授权。
+  </Accordion>
+</Accordions>
+
+## 使用
+
+<Accordions>
+  <Accordion title="AI 生成的脚本不生效">
+    常见原因：需求描述不够具体；目标应用版本与代码不匹配；类名或方法名被混淆。建议先用内置工具（DexKit 搜索、反编译）确认真实类名与方法签名，再让 AI 生成脚本，并基于日志迭代。
+  </Accordion>
+  <Accordion title="怎么描述需求更有效">
+    说清三件事：**目标**（登录流程、网络请求、崩溃点、调用链追踪）、**期望行为**（只观察、打印参数、修改返回值、追踪调用链）、**已知信息**（界面文案、字符串常量、类名片段、报错信息）。
+  </Accordion>
+  <Accordion title="工具太多，上下文被占满怎么办">
+    在**上下文用量**面板查看「工具定义」分项；关闭用不到的内置工具分组或 MCP 工具；需要轻量问答时切换到**极简模式**（只保留终端工具）。
+  </Accordion>
+  <Accordion title="为什么 AI 调用某个工具时提示未连接">
+    动态布局分析类工具（`ui_inspect_*`、`get_layout_tree` 等）需要目标应用处于运行状态且跨进程桥已连接。先启动目标应用，或在应用详情页点「重连」。
+  </Accordion>
+  <Accordion title="对话数据保存在哪里">
+    保存在应用私有数据库（`/data/data/me.yun.lspilot/databases/`），可在**设置 → 存储空间 → 聊天记录**中清理。
+  </Accordion>
+</Accordions>
+
+## 插件
+
+<Accordions>
+  <Accordion title="插件支持哪些语言">
+    只支持 **BeanShell**（Java 语法），入口文件固定为 `main.java`。Lua 与 JavaScript 引擎已在当前版本移除，旧的 `main.lua` / `main.js` 不会被加载。
+  </Accordion>
+  <Accordion title="插件放在哪里">
+    `Android/media/<目标应用包名>/LSPilot/Plugin/<插件目录>/`，目录中必须同时存在 `main.java` 与 `info.prop`。
+  </Accordion>
+  <Accordion title="修改脚本后需要重启吗">
+    修改 `main.java` **需要**强制停止并重启目标应用；只切换插件的启用开关则可以**立即生效**，无需重启。
+  </Accordion>
+  <Accordion title="插件显示「未知插件」">
+    `info.prop` 缺少 `name` 键。补上即可；`id` 与 `pkg` 缺失时会被自动补齐并回写文件。
+  </Accordion>
+  <Accordion title="Hook 没生效，怎么排查">
+    先只写 `findClassOrNull` 并打印类名，确认定位成功；再在回调里只打印一行日志，确认 Hook 命中；最后才修改参数或返回值。详见[调试与排错](/plugin/app/debugging)。
+  </Accordion>
+  <Accordion title="多个插件会互相影响吗">
+    每个插件有独立的脚本命名空间，但 Hook 的 `id` 是宿主进程内的全局键。不同插件使用相同 id 会互相覆盖，建议给 id 加插件前缀。
+  </Accordion>
+  <Accordion title="卸载插件会自动解除 Hook 吗">
+    不会。请在脚本的 `onUnload()` 中显式 `unhook(...)`，或保存 `HookHandle` 后调用 `unhook()`。
+  </Accordion>
+</Accordions>
+
+## MCP
+
+<Accordions>
+  <Accordion title="支持 stdio 传输的 MCP 服务器吗">
+    不支持。当前只支持远程 **Streamable HTTP** 与 **SSE** 两种传输，需要服务器已经运行在可访问的地址上。
+  </Accordion>
+  <Accordion title="连接失败怎么办">
+    点击服务器卡片上的「查看错误」获取原因；检查地址是否可达、请求头是否正确、服务器是否需要鉴权；然后下拉刷新重试。
+  </Accordion>
+  <Accordion title="工具开关在重启后会丢失吗">
+    不会。重新连接时 LSPilot 会按工具名保留你已保存的开关状态，新出现的工具默认开启。
+  </Accordion>
+  <Accordion title="MCP 插件和项目插件有什么区别">
+    MCP 插件运行在 LSPilot 进程里，用来**给 AI 提供工具**；项目插件注入目标应用进程，用来 **Hook 目标应用**。两者互不影响。
+  </Accordion>
+  <Accordion title="新建的 MCP 插件为什么 AI 用不到">
+    新建插件默认不启用。请在插件卡片上打开开关，工具才会注入 AI 的工具列表。
+  </Accordion>
+</Accordions>
+
+## 终端与其它
+
+<Accordions>
+  <Accordion title="终端第一次打开很慢">
+    首次使用需要下载 Ubuntu rootfs 并解压，耗时取决于网络。完成后环境会保留，后续启动很快。
+  </Accordion>
+  <Accordion title="免 Root 模式与 chroot 模式怎么选">
+    没有 Root 时只能用 proot（免 Root 模式）；有 Root 时 chroot 性能更好。AI 调用 `run_command` 时默认跟随终端设置，也可以在单次调用中覆盖。
+  </Accordion>
+  <Accordion title="run_command 的输出被截断了">
+    超过 8000 字符的结果会被截断。可以让 AI 分页读取，或把结果写入文件后再读取。
+  </Accordion>
+  <Accordion title="如何开启实验性功能">
+    在**首页连点 5 次激活状态卡片**（相邻两次间隔不超过 0.5 秒）即可切换实验模式；开启后 **设置 → 关于** 会出现「实验性功能」入口，其中可以打开性能悬浮窗。
+  </Accordion>
+  <Accordion title="当前版本号是多少">
+    文档对应 LSPilot 1.2.0（versionCode 18）。版本信息可在**设置 → 关于**中查看。
+  </Accordion>
+  <Accordion title="如何获取最新版本">
+    通过 [GitHub Releases](https://github.com/Xposed-Modules-Repo/me.yun.lspilot/releases) 或 [Telegram 频道](https://t.me/LSPilot) 获取。
+  </Accordion>
+</Accordions>
+
+## 反馈与支持
+
+### 反馈渠道
+
+- **Telegram 频道**：[t.me/LSPilot](https://t.me/LSPilot) —— 版本更新通知与使用教程。
+- **GitHub Issues**：[提交问题](https://github.com/Xposed-Modules-Repo/me.yun.lspilot/issues) 或功能建议。
+- **QQ 群**：[加入群聊](mqqapi://group/join_troop?src_type=internal&version=1&troop_uin=253461997&subsource_id=1030&is_need_jump_aio=1)。
+
+### 提交反馈时请附上
+
+1. **环境信息**：设备型号、Android 版本、LSPosed 版本、LSPilot 版本；
+2. **目标应用**：应用名称、版本号、包名；
+3. **问题描述**：期望行为、实际行为、复现步骤；
+4. **日志**：插件 `error/` 目录下的错误文件，或 logcat 中 tag 为 `LSPilot` 的输出；
+5. **截图或录屏**（如果方便）。

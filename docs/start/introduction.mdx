@@ -1,0 +1,79 @@
+---
+title: 简介
+description: 了解 LSPilot 是什么、它解决什么问题，以及它在设备上是如何运行的。
+icon: Info
+---
+
+LSPilot 是一个跑在手机上的 **AI 逆向分析与动态插件调试工具**。先花两分钟了解它能做什么、以及它是怎么工作的。
+
+## 什么是 LSPilot
+
+LSPilot 是一个运行在 Android 手机上的 **AI 逆向分析与动态插件调试工具**。它以 LSPosed 模块的形式注入目标应用进程，把反编译、字节码搜索、资源解析、代码编辑、脚本引擎、终端和 AI 助手装进同一部手机里。
+
+传统流程里，你需要把 APK 拷到电脑、用 jadx 打开、翻找混淆后的类名、写 Xposed 模块、编译、安装、重启应用。LSPilot 把这条链路压缩成一句话：
+
+> 「反编译这个应用，找出启动流程的调用链，把关键方法的参数打出来。」
+
+AI 会自己调用内置工具去反编译、搜索字符串、查找调用链，定位到目标类和方法，再生成可以直接运行的 BeanShell 插件脚本，注入到正在运行的目标进程里，立刻验证结果。
+
+## 设计理念
+
+<Cards>
+  <Card icon="smartphone" title="在设备上完成" description="样本不出手机。反编译、搜索、编辑、注入、看日志都在目标设备上闭环，避免样本在多台机器之间流转。" />
+  <Card icon="bot" title="让 AI 干重复劳动" description="定位混淆类名、比对方法签名、写样板 Hook 代码这些机械工作交给 AI，人只负责判断和决策。" />
+  <Card icon="zap" title="脚本即改即跑" description="插件是纯脚本，保存在目标应用的媒体目录里，改完重新加载即可，不需要重新编译和安装模块。" />
+</Cards>
+
+## 能力总览
+
+| 能力 | 说明 |
+| --- | --- |
+| AI 对话分析 | 自然语言描述需求，AI 通过 function calling 调用内置工具完成定位与生成 |
+| 静态反编译 | 内置 jadx，直接在设备上把 APK / DEX 反编译成 Java 源码；大 APK 自动降级 |
+| 字节码搜索 | DexKit 精确匹配类 / 方法 / 字段，不加载类也能定位混淆代码 |
+| Smali 分析 | 基于 dexlib2 + baksmali，按类或方法查看 Smali 汇编 |
+| 资源与清单 | 解析 resources.arsc、strings.xml、AndroidManifest 组件信息 |
+| 动态 UI 分析 | 注入目标进程后读取实时布局树、元素属性与 View 创建堆栈 |
+| 插件引擎 | BeanShell（Java 语法）脚本引擎，Hook / 反射 / DexKit / 动态加载一应俱全 |
+| MCP 扩展 | 接入外部 MCP 服务器，或把脚本写成 AI 可调用的工具 |
+| 终端 | 内置 Xed 终端与 Ubuntu 环境，AI 也能直接执行 shell 命令 |
+| 代码编辑器 | 多标签、语法高亮、代码补全、Hook 模板，就地编辑插件脚本 |
+| 性能观测 | 实时性能悬浮窗 + 卡顿堆栈定位 |
+| 界面定制 | 动态背景、毛玻璃、液态玻璃、底栏样式、页面缩放、主题取色 |
+
+## 运行架构
+
+LSPilot 由**一个 APK**同时扮演两个角色：用户操作的**管理器**，以及注入目标进程的**模块**。
+
+<Steps>
+  <Step>**模块注入**：LSPosed 依据你在应用内勾选的作用域，把 LSPilot 的加载器注入目标应用进程（可选主进程 / 子进程 / 所有进程）。</Step>
+  <Step>**宿主初始化**：注入后在 `Instrumentation.callApplicationOnCreate` 时机初始化环境，采集宿主版本、Context 与 ClassLoader，并按需加载该应用已启用的插件。</Step>
+  <Step>**跨进程桥**：目标进程与 LSPilot 主进程之间通过 Binder 桥双向通信，用于插件开关、UI 检视指令与结果回传。</Step>
+  <Step>**独立工具进程**：内置工具与 MCP 客户端运行在独立的 `:mcp` 进程中，DexKit 的全量索引等重型内存开销不计入主进程，工具崩溃也不会带走界面。</Step>
+</Steps>
+
+### 文件布局
+
+每个目标应用有自己独立的插件目录，模块本身不保存插件内容：
+
+```text
+/storage/emulated/0/Android/media/<目标应用包名>/LSPilot/
+├── .enabled          # 该应用是否注入（应用级开关）
+├── .process_mode     # 注入进程模式
+└── Plugin/           # 插件根目录，每个子目录是一个插件
+    └── 示例插件/
+        ├── info.prop # 插件元信息
+        ├── main.java # 插件脚本（BeanShell）
+        ├── .enabled  # 插件开关
+        ├── lib/      # 可选，jar / dex / aar / apk 依赖
+        ├── log/      # 运行日志，按天滚动
+        └── error/    # 加载与运行错误
+```
+
+## 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| Xposed 框架 | LSPosed |
+| Android 版本 | Android 14.0 及以上（模块 minSdk 为 API 33） |
+| 架构 | arm64-v8a |

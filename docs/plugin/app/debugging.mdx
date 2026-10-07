@@ -1,0 +1,110 @@
+---
+title: 调试与排错
+description: 日志、错误文件、日志查看器与常见问题排查。
+icon: Bug
+---
+
+插件出问题时，先看日志、再看错误文件，多数问题一眼就能定位。
+
+## 日志
+
+脚本里的 `log(...)` 会写到两个地方：
+
+| 位置 | 说明 |
+| --- | --- |
+| logcat | tag 为 `LSPilot`，同时转发给 Xposed 框架日志 |
+| `<插件目录>/log/yyyyMMdd.log` | **按天滚动追加**，每行格式为 `时间 [级别] 内容` |
+
+```java
+log("插件已加载");
+log("当前宿主版本:", hostVerName, "(", hostVerCode, ")");
+log("a", "b", "c");   // 多个参数以空格拼接
+```
+
+`toast(msg)` 会在宿主主线程弹出短提示，适合做「Hook 是否命中」的即时反馈：
+
+```java
+toast("Hook 命中: request");
+```
+
+## 错误文件
+
+脚本加载失败（语法错误、类找不到等）或回调抛异常时，会生成：
+
+```text
+<插件目录>/error/yyyyMMdd_HHmmss.log
+```
+
+文件内容包括：
+
+- 发生时间；
+- 宿主版本名与版本号；
+- 插件名称与版本；
+- 错误消息；
+- 完整堆栈。
+
+每次错误生成一个新文件（同一秒内的多次错误会覆盖），便于对照修改前后。
+
+## 日志查看器
+
+在**应用详情 → 日志**中查看：
+
+- `log/` 下的文件显示为绿色「日志」图标；
+- `error/` 下的文件显示为红色「错误」图标；
+- 支持下拉刷新、单文件删除、清空全部日志、用其他应用打开文件。
+
+## 常见错误
+
+| 现象 | 原因 | 解决 |
+| --- | --- | --- |
+| `ClassNotFoundException` | 类名写错，或用了错误的 ClassLoader | 使用 `findClassOrNull(..., hostLoader)`，确认包名 |
+| `NoSuchMethodError` | 方法名或参数类型不匹配 | 先用 `findMethodsByReturnType` / `allFields` 列出成员 |
+| `NoSuchFieldError` | 字段名错或被混淆 | 用 `findFirstFieldByType` 按类型查找 |
+| `NoSuchMethodException: Method xxx not found` | `hookMethodBefore` 传的方法名在该类中不存在 | 确认方法属于该类而非父类 |
+| 回调抛出异常 | 回调内代码出错 | 在回调里加 `try/catch` 并打印异常 |
+| 插件显示「未知插件」 | `info.prop` 缺少 `name` | 补上 `name` 键 |
+| 插件列表里没有该插件 | 目录缺少 `main.java` 或 `info.prop` | 补齐两个文件 |
+| 修改脚本后没变化 | 脚本没有热重载 | 强制停止并重启目标应用 |
+| Hook 生效了但卸载不掉 | 未保存 `HookHandle`，或 id 被其他插件覆盖 | 给 id 加前缀，保存句柄并在 `onUnload` 中解除 |
+
+## 排查流程
+
+<Steps>
+  <Step>**确认插件被加载**：日志中应有顶层 `log(...)` 的输出。没有输出说明目录结构不对或开关未打开。</Step>
+  <Step>**确认类与方法存在**：先只写 `findClassOrNull` + `log(clazz.getName())`，确认定位成功再写 Hook。</Step>
+  <Step>**确认 Hook 命中**：在回调里只打印一行日志或弹一次 Toast，排除业务逻辑本身出错。</Step>
+  <Step>**再动返回值**：确认命中后再修改 `param.result` 或参数。</Step>
+  <Step>**看错误文件**：如果插件加载失败，直接看 `error/` 下的最新文件，堆栈会指出具体行号。</Step>
+</Steps>
+
+## 让 AI 帮你排错
+
+可以直接把日志粘给 AI：
+
+```text
+这是我插件的错误日志，帮我看看哪里写错了：
+（粘贴 error/ 目录下的文件内容）
+```
+
+AI 也可以主动读取插件日志：
+
+- `list_plugins`（`expand=true`）列出插件目录与文件；
+- `read_plugin` 读取 `Demo/log/20260101.log` 或 `Demo/error/xxx.log`；
+- `edit_plugin` 直接修改脚本并再次验证。
+
+## 性能建议
+
+- 只 Hook 必要的方法；每个 Hook 都有开销。
+- 不要在回调里做 IO、网络或大量字符串拼接。
+- 高频方法（如 `onDraw`、列表 `getView`）上打日志会显著拖慢应用，必要时加开关变量控制。
+- 用完即卸：短时调试的 Hook 记得 `unhook`。
+
+## 与宿主框架的差异
+
+| 行为 | API 82（Xposed 兼容层） | API 102（libxposed） |
+| --- | --- | --- |
+| `before` 中设置 `result` | 跳过原方法 | 跳过原方法 |
+| `replaceHook(id, cb)` | 真正热替换 | 等价于 `unhook(id)`，新回调不生效 |
+| 回调抛异常 | 由框架处理 | 会向上传播，建议自行 try/catch |
+
+写兼容两种环境的脚本时，避免依赖 `replaceHook` 的热替换语义。

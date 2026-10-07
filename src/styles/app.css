@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-ui/css/generated/spacious.css';
+
+/* 首页（landing）使用的品牌色令牌，映射到 --brand，随深浅色切换 */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-landing-foreground: var(--landing-foreground);
+}
+
+:root {
+  --brand: #6b16ed;
+  --brand-foreground: #ffffff;
+  --landing-foreground: #0b0b0f;
+  --color-fd-primary: #6b16ed;
+  --color-fd-primary-foreground: #fafafa;
+  --color-fd-ring: #6b16ed;
+  --color-fd-accent: rgb(107 22 237 / 0.08);
+  --color-fd-accent-foreground: #2f1460;
+}
+
+.dark {
+  --brand: #c084fc;
+  --brand-foreground: #1a0b2e;
+  --landing-foreground: #f5f5f7;
+  --color-fd-primary: #c084fc;
+  --color-fd-primary-foreground: #fafafa;
+  --color-fd-ring: #c084fc;
+  --color-fd-accent: rgb(192 132 252 / 0.22);
+  --color-fd-accent-foreground: #fbf7ff;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0 !important;
+  --removed-body-scroll-bar-size: 0 !important;
+}
+
+body {
+  text-wrap: pretty;
+}
+
+.prose :where(img) {
+  margin-block: 1.75rem;
+}
+
+[data-media-card] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+[data-media-card] > * {
+  margin: 0 !important;
+}
+
+[data-media-card] [data-rmiz] {
+  display: block;
+  margin: 0 !important;
+  line-height: 0;
+}
+
+[data-media-card] img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 !important;
+}
+
+[data-media-card] p {
+  margin: 0 !important;
+}
+
+[data-docs-index] [data-sidebar-placeholder],
+[data-docs-index] [data-sidebar-panel] {
+  display: none;
+}

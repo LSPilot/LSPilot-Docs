@@ -1,0 +1,132 @@
+---
+title: 反射 API
+description: 查找类、字段、方法与构造器，读写字段，调用方法。
+icon: Search
+---
+
+反射 API 在查找时会**沿继承链向上查找**并缓存结果，同时自动设置可访问性（`setAccessible(true)`），因此访问私有成员不需要额外处理。
+
+## 查找类
+
+```java
+Class clazz = findClass("com.example.Target", hostLoader);        // 失败抛异常
+Class maybe = findClassOrNull("com.example.Maybe", hostLoader);   // 失败返回 null
+```
+
+推荐使用 `findClassOrNull`，然后判空处理。
+
+## 字段查找
+
+| 函数 | 说明 |
+| --- | --- |
+| `findField(clazz, name)` | 按名称查找字段，找不到抛 `NoSuchFieldError` |
+| `findFirstFieldByType(clazz, type)` | 按类型查找第一个字段 |
+| `allFields(clazz)` | 返回该类的全部声明字段（已设为可访问） |
+
+## 实例字段读写
+
+| 读取 | 写入 |
+| --- | --- |
+| `getObjectField(obj, name)` | `setObjectField(obj, name, value)` |
+| `getStringField(obj, name)` | — |
+| `getIntField(obj, name)` | `setIntField(obj, name, value)` |
+| `getLongField(obj, name)` | `setLongField(obj, name, value)` |
+| `getBooleanField(obj, name)` | `setBooleanField(obj, name, value)` |
+| `getFloatField(obj, name)` | `setFloatField(obj, name, value)` |
+| `getDoubleField(obj, name)` | `setDoubleField(obj, name, value)` |
+| `getByteField(obj, name)` | — |
+
+```java
+int count = getIntField(obj, "count");
+setIntField(obj, "count", 100);
+
+String name = getStringField(obj, "name");
+Object data = getObjectField(obj, "data");
+setObjectField(obj, "data", newData);
+```
+
+## 静态字段读写
+
+| 读取 | 写入 |
+| --- | --- |
+| `getStaticObjectField(clazz, name)` | `setStaticObjectField(clazz, name, value)` |
+| `getStaticIntField(clazz, name)` | `setStaticIntField(clazz, name, value)` |
+| `getStaticLongField(clazz, name)` | `setStaticLongField(clazz, name, value)` |
+| `getStaticBooleanField(clazz, name)` | `setStaticBooleanField(clazz, name, value)` |
+| — | `setStaticFloatField(clazz, name, value)` |
+| — | `setStaticDoubleField(clazz, name, value)` |
+| — | `setStaticByteField(clazz, name, value)` |
+| — | `setStaticShortField(clazz, name, value)` |
+
+```java
+int sCount = getStaticIntField(clazz, "sCount");
+setStaticIntField(clazz, "sCount", 999);
+
+Object instance = getStaticObjectField(clazz, "INSTANCE");
+setStaticObjectField(clazz, "INSTANCE", null);
+```
+
+## 方法查找与调用
+
+| 函数 | 说明 |
+| --- | --- |
+| `findMethodExact(clazz, name, Class...)` | 按精确参数类型查找，找不到抛 `NoSuchMethodError` |
+| `findMethodBestMatch(clazz, name, Object... args)` | 按参数个数与类型兼容性匹配 |
+| `findMethodsByReturnType(clazz, type)` | 列出所有指定返回类型的方法 |
+| `callMethod(obj, name, Object... args)` | 调用实例方法 |
+| `callMethodExact(obj, name, Class[] params, Object... args)` | 按精确签名调用实例方法 |
+| `callStaticMethod(clazz, name, Object... args)` | 调用静态方法 |
+| `callStaticMethodExact(clazz, name, Class[] params, Object... args)` | 按精确签名调用静态方法 |
+
+```java
+Method m = findMethodExact(clazz, "setValue", String.class, int.class);
+
+String s = callMethod(obj, "getString", "key");
+callMethod(obj, "setValue", "key", 100);
+
+int code = callStaticMethod(clazz, "getCode", 100);
+```
+
+## 构造实例
+
+| 函数 | 说明 |
+| --- | --- |
+| `findConstructorExact(clazz, Class...)` | 查找构造器 |
+| `newInstance(clazz, Object... args)` | 按参数自动匹配构造器并创建实例 |
+| `newInstanceExact(clazz, Class[] params, Object... args)` | 按精确签名创建实例 |
+
+```java
+Object obj = newInstance(clazz);
+Object obj2 = newInstance(clazz, "arg1", 100);
+Object obj3 = newInstanceExact(clazz, [String.class, Integer.TYPE] as Class[], "arg1", 100);
+```
+
+## 枚举与数组
+
+```java
+Object mode = getEnumConstant(clazz, "MODE_FAST");
+Object arr = newArray(String.class, 10);
+```
+
+## 附加字段
+
+可以在**任意对象**上挂载自定义数据（按对象弱引用存储，对象回收后自动释放）。常用于在多个 Hook 之间传递状态：
+
+```java
+setAdditionalField(obj, "clickCount", 1);
+Object count = getAdditionalField(obj, "clickCount");
+```
+
+## 调试技巧
+
+```java
+// 列出全部字段
+for (Object f : allFields(clazz)) {
+    log("字段:", f.getName(), "类型:", f.getType().getName());
+}
+
+// 列出所有返回 String 的方法
+for (Object m : findMethodsByReturnType(clazz, String.class)) {
+    log("方法:", m.getName());
+}
+```

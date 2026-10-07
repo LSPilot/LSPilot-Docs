@@ -1,0 +1,75 @@
+---
+title: UI 检视
+description: 在运行中的目标应用里查看实时布局树、元素属性与创建堆栈。
+icon: ScanSearch
+---
+
+静态反编译能看到代码，却看不到「当前这个界面到底是哪个类、什么尺寸」。UI 检视把目标应用的实时视图树暴露出来。
+
+## 它解决什么问题
+
+静态反编译能看到代码，但看不到「当前这个界面到底是哪个类、哪个布局、什么尺寸」。UI 检视把目标应用的实时视图树暴露出来，让 AI 与你都能直接问：
+
+> 「这个按钮是哪个类的？它在哪里被创建的？为什么宽度是 0？」
+
+## 开启方式
+
+- 对 AI 说「开启 UI 检视」，AI 会调用 `ui_inspect_on`；
+- 或在应用详情页的**动态配置**中打开「可视化布局」开关。
+
+开启后宿主应用里会出现一个**四开关悬浮窗**：
+
+| 开关 | 作用 |
+| --- | --- |
+| 检视 | 开始 / 停止圈选元素 |
+| 单位 | 尺寸显示 DP 还是 PX |
+| 属性 | 点击元素后是否弹出属性详情面板 |
+| 穿透 | 点击是否穿透到应用本身 |
+
+开启后目标应用界面上会出现检视触发器（悬浮按钮），可以：
+
+- 圈选任意元素；
+- 查看该元素的布局信息与属性；
+- 打开轮廓绘制，直观看到每个 View 的边界；
+- 做相对测量（选中两个元素比较尺寸与间距）。
+
+关闭时调用 `ui_inspect_off` 或再次点击触发器。
+
+<Callout type="info">
+  检视依赖悬浮窗权限。没有悬浮窗权限时无法显示触发器，但布局数据仍可通过 AI 工具读取。
+</Callout>
+
+## 通过 AI 使用
+
+| 想做什么 | 对应工具 |
+| --- | --- |
+| 看整个界面结构 | `get_layout_tree` |
+| 看某个元素的属性 | `get_element_info` |
+| 看元素的类继承链 | `get_element_inheritance` |
+| 看元素在哪段代码里创建 | `get_element_stack` |
+| 看父元素 / 子元素 | `get_element_parent` / `get_element_children` |
+| 按文案找控件 | `search_layout_text` |
+| 列出并读取布局文件 | `list_layouts` / `read_layout` |
+
+`element_id` 支持三种写法：
+
+- `#序号`：`get_layout_tree` 输出中的编号；
+- 资源 ID：例如 `app:id/title`，或其子串；
+- `depth:N`：查询指定深度的全部元素。
+
+## 典型用法
+
+<Steps>
+  <Step>让 AI 先 `ui_inspect_on` 开启检视。</Step>
+  <Step>让它 `get_layout_tree` 输出当前界面结构，或用 `search_layout_text` 按界面上的文案直接定位。</Step>
+  <Step>用 `get_element_info` 确认控件类型与状态，用 `get_element_stack` 找到创建它的代码位置。</Step>
+  <Step>拿到类名与方法后，让 AI 写 Hook 脚本，或直接在检视器中验证修改效果。</Step>
+</Steps>
+
+<Callout type="warn">
+  `get_element_stack` 需要在开启过至少一次 UI 检视之后才可用，因为 View 的构造需要在检视开启时被 Hook 才能记录堆栈。
+</Callout>
+
+<Callout type="info">
+  当前版本的检视是**只读**的：可以查看布局、属性与创建堆栈，但不会修改宿主 View 的尺寸、文本或颜色。
+</Callout>

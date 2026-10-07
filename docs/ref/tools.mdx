@@ -1,0 +1,116 @@
+---
+title: 内置工具清单
+description: 全部内置工具的名称、用途与参数，按分组列出。
+icon: Wrench
+---
+
+内置工具是 AI 的 function calling 目标，**无需配置即可使用**。
+
+按分组开关、试运行与输出查看的方式见[工具调用与工作过程](/guide/ai/tools)；MCP 工具与 MCP 插件工具见[插件开发](/plugin)。
+
+<Callout type="info">
+  分组总开关**默认关闭**，需要先在 **设置 → 功能拓展 → MCP 拓展 → 内置** 中打开对应分组。
+</Callout>
+
+## 静态反编译
+
+| 工具 | 说明 |
+| --- | --- |
+| `decompile_class` | 用 jadx 把类反编译成带行号的 Java 源码，支持按行范围或分页读取；超大 APK 会自动降级 |
+| `decompile_method` | 反编译单个方法，输出 `行号|代码` |
+| `decompile_class_methods_only` | 只列出类的全部方法签名 |
+| `decompile_class_fields` | 只列出类的全部字段 |
+| `get_class_smali` | 用 dexlib2 + baksmali 取类的 Smali 代码（mmap 轻量方式，适合大 APK） |
+| `get_method_smali` | 取单个方法的 Smali 代码 |
+
+## DexKit 搜索
+
+| 工具 | 说明 |
+| --- | --- |
+| `search_classes` | 按关键字模糊搜索类名 |
+| `search_strings` | 在 DEX 字符串池中搜索字符串常量（不含资源） |
+| `find_class` | 按包名、父类、接口、使用到的字符串精确查找类 |
+| `find_method` | 按方法名、所在类、返回类型、参数类型、使用到的字符串查找方法 |
+| `find_field` | 按字段名、所在类、类型查找字段 |
+| `find_usage` | 查找某个字符串常量被哪些类/方法使用，是分析的常见起点 |
+| `find_caller` | 查找某个方法的所有调用者，用于调用链追踪 |
+| `class_hierarchy` | 查看类的继承树：向上是父类与接口，向下是直接子类 |
+| `view_strings` | 查看某个类中使用的全部字符串常量 |
+| `find_class_usage` | 全局查找对某个类的所有引用（字段、返回、参数、继承、实现、调用六类） |
+
+## 资源与清单
+
+| 工具 | 说明 |
+| --- | --- |
+| `read_manifest` | 读取当前应用的 AndroidManifest 组件信息，可按 activity / service / receiver / provider / permission 过滤 |
+| `list_resources` | 列出 APK 中指定类型的资源文件（layout / drawable / raw / anim / mipmap） |
+| `search_string_resources` | 在 strings.xml 资源中搜索（与 DEX 字符串池不同） |
+| `list_layouts` | 列出 `res/layout/` 下的布局文件，支持文件名模糊过滤 |
+| `read_layout` | 读取布局 XML 内容（经 Android 框架解析，无编码问题） |
+
+## 动态布局分析
+
+这些工具作用于**正在运行的目标应用**，需要宿主进程已连接。
+
+| 工具 | 说明 |
+| --- | --- |
+| `ui_inspect_on` / `ui_inspect_off` | 开启 / 关闭目标应用上的 UI 检视悬浮入口 |
+| `get_layout_tree` | 获取当前屏幕的完整实时布局树（含所有窗口、对话框、弹窗），支持限制深度与是否包含不可见元素 |
+| `get_element_info` | 获取元素的实时属性：类名、尺寸、可见性、可点击、边距、内边距、背景与文本 |
+| `get_element_inheritance` | 获取元素的类继承链 |
+| `get_element_stack` | 获取元素的 Java 创建调用栈（需先开启过 UI 检视） |
+| `get_element_parent` / `get_element_children` | 以树形查看父元素 / 直接子元素 |
+| `search_layout_text` | 在当前布局中按关键字搜索文本、contentDescription 与 hint，支持普通 / 正则 / 模糊三种模式 |
+
+<Callout type="info">
+  `element_id` 可以是 `get_layout_tree` 输出中的 `#序号`、资源 ID（如 `app:id/title`）或其子串，也可以是 `depth:N` 形式。
+</Callout>
+
+## 插件管理
+
+| 工具 | 说明 |
+| --- | --- |
+| `list_plugins` | 以树形列出当前应用的插件；`expand=true` 时递归展开内部文件 |
+| `read_plugin` | 按相对路径读取插件目录中的任意文件，支持行范围与 `tail` |
+| `create_plugin` | 创建完整插件（目录 + info.prop + 模板脚本），或只创建一个文件 |
+| `edit_plugin` | 用精确文本替换修改插件文件 |
+| `write_plugin` | 整体覆盖写入插件文件 |
+| `delete_plugin` | 删除插件中的文件或目录（目录需 `recursive=true`） |
+| `load_plugin` / `unload_plugin` | 通过跨进程桥在**运行中**的宿主应用里即时加载 / 卸载插件 |
+| `get_plugin_status` | 读取插件的启用状态（依据 `.enabled` 标记） |
+
+## 终端与文件
+
+| 工具 | 说明 |
+| --- | --- |
+| `run_command` | 在以 root 运行的 Ubuntu 容器中执行 shell 命令，支持管道、重定向与环境变量；可通过 `mode` 单次覆盖 proot / chroot |
+| `file_read` | 按绝对路径读取文件内容，支持行范围 |
+| `file_edit` | 按绝对路径做精确文本替换 |
+
+## 联网
+
+| 工具 | 说明 |
+| --- | --- |
+| `web_search` | 通过 Bing 搜索（无需 API Key，国内可用），返回标题、链接与摘要 |
+| `web_fetch` | 抓取网页内容，默认返回清洗后的文本，`raw=true` 返回原始 HTML |
+| `web_test` | 诊断网络连通性（DNS + HTTP），搜索结果为空时先跑它 |
+
+## 协作与技能
+
+| 工具 | 说明 |
+| --- | --- |
+| `agent` | 创建子任务：`explore`（只读）或 `sub-coding`（可写，需声明 `write_scope`） |
+| `agent_pipeline` | 一次创建多个有依赖关系的子任务流水线 |
+| `ask_user` | 向用户提问并等待回答（1–5 题，可单选 / 多选 / 自由文本） |
+| `activate_skill` | 按需把某个 Skill 的说明或附带文件载入上下文 |
+| `run_skill` | 在 Ubuntu 沙箱中执行 Skill 自带的脚本 |
+
+## 计划模式专用
+
+以下工具只在**计划模式**下注入，不出现在内置工具开关列表中：
+
+| 工具 | 说明 |
+| --- | --- |
+| `todo_write` | 提交或整体重写计划清单 |
+| `todo_update` | 更新某一项的状态（`in_progress` / `completed`） |
+| `todo_read` | 读回当前完整计划快照 |

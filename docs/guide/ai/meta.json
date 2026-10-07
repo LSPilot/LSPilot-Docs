@@ -1,0 +1,9 @@
+{
+  "title": "AI",
+  "icon": "MessageSquare",
+  "pages": [
+    "index",
+    "chat",
+    "tools"
+  ]
+}

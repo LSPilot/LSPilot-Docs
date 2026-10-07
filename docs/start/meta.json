@@ -1,0 +1,10 @@
+{
+  "title": "开始使用",
+  "icon": "Rocket",
+  "pages": [
+    "introduction",
+    "installation",
+    "quickstart",
+    "interface"
+  ]
+}

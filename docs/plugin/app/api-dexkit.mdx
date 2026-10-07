@@ -1,0 +1,131 @@
+---
+title: DexKit API
+description: 在不加载类的情况下按特征定位混淆后的类、方法与字段。
+icon: ScanSearch
+---
+
+目标应用被混淆后类名都是 `a.b.c`，靠猜名字不现实。DexKit 直接在字节码层面按特征检索。
+
+## 为什么需要 DexKit
+
+目标应用被混淆后，类名与方法名都是 `a.b.c`，靠 `findClass` 猜名字不现实。DexKit 直接在 DEX 字节码层面按**特征**检索：用了哪些字符串、继承自谁、实现了哪些接口、参数个数、返回类型……
+
+<Callout type="warn">
+  所有条件都是**精确匹配**（`Equals`），不支持模糊或正则。条件写得越具体，命中越准。
+</Callout>
+
+## 三个入口
+
+```java
+findClass()    // 返回 ClassFinder
+findMethod()   // 返回 MethodFinder
+findField()    // 返回 FieldFinder
+```
+
+链式设置条件，最后用终止方法取结果：
+
+| 终止方法 | 说明 |
+| --- | --- |
+| `single()` | 返回第一个结果，找不到返回 `null` |
+| `singleOrThrow()` | 找不到抛 `NoSuchElementException` |
+| `list()` | 返回全部结果 |
+
+## ClassFinder
+
+| 条件 | 说明 |
+| --- | --- |
+| `pkg(String...)` | 只在这些包名下搜索 |
+| `notPkg(String...)` | 排除这些包名 |
+| `superClass(String)` / `superClass(Class)` | 父类 |
+| `interfaces(String...)` / `interfaces(Class...)` | 实现的接口 |
+| `usingStrings(String...)` | 类中使用了这些字符串 |
+| `className(String)` / `name(String)` | 类名精确匹配 |
+| `modifiers(int)` | 修饰符 |
+
+```java
+Class clazz = findClass()
+    .pkg("com.example.net")
+    .usingStrings("trade_result", "requestNo")
+    .single();
+
+if (clazz == null) {
+    log("未定位到目标类，请调整特征");
+}
+```
+
+## MethodFinder
+
+| 条件 | 说明 |
+| --- | --- |
+| `inClass(String)` / `inClass(Class)` | 所在类 |
+| `name(String)` | 方法名 |
+| `paramCount(int)` | 参数个数 |
+| `params(String...)` | 参数类型（**Smali 描述符**，如 `Ljava/lang/String;`、`I`） |
+| `returnType(String)` | 返回类型（Smali 描述符） |
+| `usingStrings(String...)` | 方法中使用了这些字符串 |
+| `pkg(String...)` / `notPkg(String...)` | 限定或排除包名 |
+| `modifiers(int)` | 修饰符 |
+
+```java
+Object member = findMethod()
+    .inClass(clazz)
+    .name("sendMessage")
+    .paramCount(3)
+    .single();
+```
+
+`single()` 返回的是 `java.lang.reflect.Method`（构造器返回 `Constructor`，静态初始化块会被跳过），可以直接传给 Hook API：
+
+```java
+hookBefore(member, "myplugin_send", param -> {
+    log("sendMessage 被调用");
+});
+```
+
+## FieldFinder
+
+| 条件 | 说明 |
+| --- | --- |
+| `inClass(String)` / `inClass(Class)` | 所在类 |
+| `name(String)` | 字段名 |
+| `type(String)` / `type(Class)` | 字段类型 |
+| `pkg(String...)` / `notPkg(String...)` | 限定或排除包名 |
+| `modifiers(int)` | 修饰符 |
+
+```java
+java.lang.reflect.Field field = findField()
+    .inClass(clazz)
+    .type(String.class)
+    .single();
+```
+
+## 组合用法：定位 + Hook
+
+典型流程是「DexKit 定位 → 缓存 → Hook」，注意把查找放在脚本顶层只做一次，不要在 Hook 回调里反复查找：
+
+```java
+// 顶层：只查一次
+Class targetClazz = findClass()
+    .pkg("com.example.net")
+    .usingStrings("trade_result")
+    .single();
+
+if (targetClazz != null) {
+    Object onResult = findMethod()
+        .inClass(targetClazz)
+        .paramCount(2)
+        .single();
+
+    if (onResult != null) {
+        hookAfter(onResult, "myplugin_trade", param -> {
+            log("回调参数:", param.args);
+        });
+    }
+}
+```
+
+## 注意事项
+
+- DexKit 依赖 native 库与宿主 ClassLoader，只能在**目标应用进程内**使用（也就是插件里），LSPilot 应用内不可用。
+- 查找结果需要能转换成宿主 ClassLoader 中的类；转换失败的条目会被跳过，因此 `single()` 可能返回 `null` 而 `list()` 为空。
+- 特征太少会命中大量类；建议同时使用包名、字符串与参数个数等多重条件。

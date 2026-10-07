@@ -1,0 +1,73 @@
+---
+title: 插件系统总览
+description: LSPilot 插件是什么、放在哪里、由什么组成。
+icon: Puzzle
+---
+
+LSPilot 的插件是**一段在目标应用进程内运行的 BeanShell 脚本**。它随目标应用启动而加载，可以直接调用 Android API、反射访问宿主应用的类与方法，也可以使用 LSPilot 提供的 Hook / 反射 / DexKit 能力。
+
+插件不是编译产物：它就是一个目录，里面放着元信息与脚本源码，改完重启目标应用即可生效。
+
+<Callout type="info">
+  插件引擎**只支持 BeanShell**（入口文件固定为 `main.java`）。早期的 Lua 与 JavaScript 引擎已移除。
+</Callout>
+
+## 插件目录
+
+插件按**目标应用**分区存放：
+
+```text
+/storage/emulated/0/Android/media/<目标应用包名>/LSPilot/Plugin/
+└── 我的插件/
+    ├── info.prop     # 元信息（必需）
+    ├── main.java     # 脚本入口（必需）
+    ├── .enabled      # 启用标记，存在即启用
+    ├── lib/          # 可选：jar / dex / aar / apk 依赖
+    ├── log/          # 运行日志，按天滚动
+    └── error/        # 加载与运行错误
+```
+
+目录名就是插件的**目录标识**；界面与跨进程桥匹配插件时使用的是 `info.prop` 里的 `name`。
+
+### 识别条件
+
+一个子目录只有在**同时存在 `main.java` 与 `info.prop`** 时才会被识别为插件。缺少任意一个都会被忽略。
+
+## info.prop
+
+`info.prop` 是标准的 Java Properties 文件（UTF-8）：
+
+```properties
+name=网络请求日志
+author=你的名字
+version=1.0.0
+desc=打印 ApiClient#request 的参数与调用栈
+```
+
+| 键 | 必需 | 说明 |
+| --- | --- | --- |
+| `name` | 文件必需，键可缺 | 插件显示名；缺省时界面显示「未知插件」 |
+| `author` | 否 | 作者 |
+| `version` | 否 | 版本号 |
+| `desc` | 否 | 描述 |
+| `id` | 否 | 缺失时自动生成 `md5(时间戳)` 并回写文件 |
+| `pkg` | 否 | 缺失时从目录路径解析目标包名，解析不到则记为模块包名 |
+
+<Callout type="warn">
+  `id` 与 `pkg` 缺失时 LSPilot 会**自动补齐并回写** `info.prop`，这会重排文件内容。如果你手工维护该文件，建议直接写全这两个键。
+</Callout>
+
+## 能力边界
+
+- 插件**没有权限模型**：脚本与宿主应用同进程、同 ClassLoader、同 Context。
+- 插件之间**没有沙箱隔离**，共享宿主进程的静态状态。
+- Hook 的 `id` 是全局键，**不同插件使用相同 id 会互相覆盖**，建议加插件前缀。
+
+## 相关
+
+<Cards>
+  <Card icon="rocket" title="编写第一个插件" description="从目录结构到运行验证" href="/plugin/app/getting-started" />
+  <Card icon="anchor" title="生命周期与全局 API" description="onLoad / onUnload、全局变量与全局函数" href="/plugin/app/lifecycle" />
+  <Card icon="anchor" title="Hook API" description="before / after / replace 与 HookParam" href="/plugin/app/api-hook" />
+  <Card icon="bug" title="调试与排错" description="日志、错误文件与常见问题" href="/plugin/app/debugging" />
+</Cards>

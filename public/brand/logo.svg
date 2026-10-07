@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 1024 1024" role="img" aria-label="LSPilot">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="212" y1="212" x2="812" y2="812">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="gloss" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="440">
+      <stop offset="0" stop-color="#0F172A" stop-opacity="0.0706"/>
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M232,0 H792 A232,232 0 0,1 1024,232 V792 A232,232 0 0,1 792,1024 H232 A232,232 0 0,1 0,792 V232 A232,232 0 0,1 232,0 Z" fill="url(#bg)"/>
+  <path d="M161,742 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" fill="#0F172A" fill-opacity="0.549"/>
+  <path d="M868,336 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z" fill="#0F172A" fill-opacity="0.549"/>
+  <path d="M791,812 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 Z" fill="#0F172A" fill-opacity="0.549"/>
+  <path d="M212,512 a300,300 0 1,0 600,0 a300,300 0 1,0 -600,0 Z" fill="none" stroke="url(#ring)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M355.76,434.56 L456.56,504 L355.76,573.44" fill="none" stroke="#0F172A" stroke-width="53.76" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M580.88,476 H657.04 A11.2,11.2 0 0,1 668.24,487.2 V520.8 A11.2,11.2 0 0,1 657.04,532 H580.88 A11.2,11.2 0 0,1 569.68,520.8 V487.2 A11.2,11.2 0 0,1 580.88,476 Z" fill="#0F172A"/>
+  <path d="M0 232 A 232 232 0 0 1 232 0 H 792 A 232 232 0 0 1 1024 232 V 340 C 760 500 264 450 0 340 Z" fill="url(#gloss)"/>
+</svg>

@@ -1,0 +1,44 @@
+---
+title: Skills 与 Prompt
+description: 用技能包扩展 AI 的知识与脚本，用提示词预设定制系统提示。
+icon: Sparkles
+---
+
+Skills 用来给 AI 补充可复用的知识与脚本，Prompt 用来切换系统提示词预设。两者都只影响 AI 的行为，不影响目标应用。
+
+## Skills 拓展
+
+Skills 遵循 agentskills.io 的约定：**一个 Skill 是一个包含 `SKILL.md` 的目录**，可以附带 `scripts/` 与 `references/`。
+
+### 三个来源
+
+| 标签 | 说明 |
+| --- | --- |
+| 内置 | LSPilot 自带的 Skill（当前内置的是 BeanShell 插件开发文档，默认关闭，需手动开启） |
+| 本地 | 自己创建或从 ZIP 导入的 Skill |
+| 云端 | 通过 GitHub 链接拉取的 Skill |
+
+### 创建与导入
+
+- **创建**：输入名称（仅允许字母、数字、`.`、`-`、`_`），生成含 `SKILL.md` 的目录，之后可在文件管理器中编辑内容。
+- **导入 ZIP**：选择本地 ZIP 文件，其中应包含 Skill 目录（含 `SKILL.md`）。
+- **从链接拉取**：粘贴 GitHub 链接，支持三种粒度：
+  - 单个 `SKILL.md` 文件；
+  - 单个 Skill 目录（`SKILL.md` + `scripts/` + `references/`）；
+  - 整个仓库（导入其中全部 Skill）。
+
+### 在对话中使用
+
+- 启用后的 Skill 会出现在 AI 的「可用 Skills」目录中；
+- AI 通过 `activate_skill` 按需把 `SKILL.md` 或其中的文件载入上下文；
+- 若 Skill 自带脚本（`scripts/*.py`、`scripts/*.sh`），AI 可以用 `run_skill` 在 Ubuntu 沙箱中执行，脚本的工作目录就是该 Skill 目录。
+
+## Prompt 拓展
+
+Prompt 拓展用于管理 AI 的**系统提示词预设**：
+
+- 新建、编辑、删除预设；
+- 每个预设包含名称与提示词内容；
+- 至少保留一个 Prompt，无法全部删除。
+
+典型用法是为不同场景准备不同提示词，例如「专注 Hook 脚本生成」「只做只读分析、不要改文件」「优先输出 Smali 对照」。

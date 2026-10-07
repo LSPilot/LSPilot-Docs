@@ -1,0 +1,9 @@
+{
+  "title": "定制",
+  "icon": "Palette",
+  "pages": [
+    "index",
+    "appearance",
+    "skills-prompts"
+  ]
+}

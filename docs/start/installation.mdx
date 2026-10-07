@@ -1,0 +1,73 @@
+---
+title: 安装指南
+description: 安装 LSPilot 模块、激活 LSPosed 作用域并完成应用内授权。
+icon: Download
+---
+
+从下载到验证激活，这一页把安装过程拆成可以逐项核对的步骤。
+
+## 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| Xposed 框架 | LSPosed |
+| Android 版本 | Android 14.0 及以上（模块 minSdk 为 API 33，低于此版本无法安装） |
+| 架构 | arm64-v8a |
+| 存储 | 需要「所有文件访问权限」才能读写应用媒体目录 |
+
+## 安装步骤
+
+<Steps>
+  <Step>**安装 LSPosed**：LSPilot 依赖 LSPosed 框架运行，请先确保设备已正确安装并激活 LSPosed（Zygisk 或 Riru 版本均可）。</Step>
+  <Step>**下载 APK**：从 [GitHub Releases](https://github.com/Xposed-Modules-Repo/me.yun.lspilot/releases) 或 [Telegram 频道](https://t.me/LSPilot) 获取最新版本。</Step>
+  <Step>**安装 APK**：在设备上安装。系统提示风险时允许来自该来源的安装。</Step>
+  <Step>**在 LSPosed 中启用模块**：打开 LSPosed 管理器，进入「模块」页，勾选 LSPilot。</Step>
+  <Step>**选择作用域**：在模块的作用域设置中勾选需要分析的目标应用。LSPilot 的 `scope.list` 为空，作用域完全由你在应用内与 LSPosed 中决定。</Step>
+  <Step>**重启目标应用**：强制停止目标应用后重新打开，注入即生效。</Step>
+</Steps>
+
+<Callout type="warn">
+  修改作用域或插件脚本后，必须**强制停止并重启目标应用**才会重新加载插件。仅切换插件的启用开关可以在应用运行时即时生效，无需重启。
+</Callout>
+
+## 应用内权限
+
+首次启动 LSPilot 会进入引导页，逐项申请以下权限：
+
+| 权限 | 用途 | 必需 |
+| --- | --- | --- |
+| 所有文件访问权限 | 读写 `Android/media/<包名>/LSPilot/` 下的插件与日志 | 是 |
+| 读取应用列表 | 展示设备上已安装的应用，供选择作用域 | 是 |
+| 通知权限 | 展示分析进度与结果 | 否 |
+| 麦克风 | AI 对话的语音输入 | 否 |
+| 悬浮窗权限 | 显示 UI 检视悬浮窗与性能悬浮窗 | 否 |
+| 安装未知应用 | 安装分析后导出的 APK | 否 |
+
+<Callout type="info">
+  可选权限不影响核心功能，可以在需要时再授权。若跳过「所有文件访问权限」，插件目录将无法创建，插件功能不可用。
+</Callout>
+
+## 验证激活状态
+
+安装完成后打开 LSPilot：
+
+- 在**首页**可以看到当前模块状态，激活成功会显示类似「已通过 Lsp 102 激活」或「已通过 Xp 82 激活」的标记。
+- 如果显示「未检测到 Xposed 框架」，说明模块未在 LSPosed 中启用，或设备重启后 LSPosed 未生效。
+- 在**项目**页添加一个目标应用后，应用详情页会显示与宿主进程的连接状态；显示「已连接」说明注入与跨进程桥均正常。
+
+## 常见安装问题
+
+<Accordions>
+  <Accordion title="LSPosed 中看不到 LSPilot 模块">
+    确认 APK 已完整安装、LSPosed 版本与系统架构匹配（本模块仅提供 arm64-v8a），必要时重启设备后再次查看模块列表。
+  </Accordion>
+  <Accordion title="模块已启用但目标应用没有反应">
+    依次检查：作用域是否勾选该应用、是否已强制停止并重启该应用、应用详情页的注入进程模式是否覆盖了目标进程（主进程 / 子进程 / 所有进程）。
+  </Accordion>
+  <Accordion title="插件目录里看不到自己的应用">
+    插件目录是 `Android/media/<包名>/LSPilot/`，只有在该应用被添加为项目并至少连接过一次之后才会创建。
+  </Accordion>
+  <Accordion title="支持 x86 或模拟器吗">
+    不支持。模块只打包了 arm64-v8a 的 native 库（DexKit、终端等），x86 / x86_64 设备无法加载。
+  </Accordion>
+</Accordions>

@@ -1,0 +1,111 @@
+---
+title: 生命周期与全局 API
+description: 插件的加载卸载流程、onLoad / onUnload 回调、可用的全局变量与全局函数。
+icon: Anchor
+---
+
+这一页是插件脚本的「运行环境说明书」：脚本在什么时机被执行、能拿到哪些变量、能调用哪些函数、边界在哪里。
+
+## 加载与卸载流程
+
+```text
+目标应用启动 / 插件开关打开
+  └─ 新建 BeanShell 解释器
+       ├─ 注入全局变量（pluginName / hostLoader / ...）
+       ├─ 注册全局函数（hook* / find* / log / toast / ...）
+       ├─ 解释执行 main.java 顶层代码
+       └─ 调用脚本定义的 onLoad()（如果存在）
+
+插件开关关闭 / 目标应用退出
+  └─ 调用脚本定义的 onUnload()（如果存在）
+       └─ 清空命名空间并释放解释器
+```
+
+要点：
+
+- **每个插件一个独立解释器**，命名空间互不干扰；多个已启用的插件会并发加载。
+- 全局变量与全局函数在脚本顶层代码执行**之前**注入，所以顶层就可以直接调用 `log`、`hookMethodAfter` 等。
+- `onLoad()` 在顶层代码执行完毕后才触发。
+- 卸载时**不会自动解除 Hook**，需要脚本自己保存 `HookHandle` 并在 `onUnload()` 中 `unhook()`。
+
+## 生命周期回调
+
+脚本可以（但不是必须）定义两个零参数函数：
+
+```java
+onLoad() {
+    log("插件已加载");
+}
+
+onUnload() {
+    log("插件已卸载");
+}
+```
+
+| 回调 | 触发时机 | 适合做什么 |
+| --- | --- | --- |
+| `onLoad()` | 脚本顶层代码执行完成之后 | 延迟初始化、注册 Hook |
+| `onUnload()` | 插件被卸载时 | 清理资源、解除 Hook |
+
+回调内抛出的异常会被捕获并写入错误日志，不会中断其它插件。
+
+## 全局变量
+
+| 变量 | 类型 | 说明 |
+| --- | --- | --- |
+| `pluginSdk` | int | 插件 SDK 版本，当前为 `1` |
+| `pluginName` | String | `info.prop` 中的名称 |
+| `pluginAuthor` | String | 作者 |
+| `pluginVersion` | String | 版本号 |
+| `pluginPath` | String | 插件目录的绝对路径 |
+| `hostVerName` | String | 宿主应用版本名 |
+| `hostVerCode` | int | 宿主应用版本号 |
+| `hostContext` | Context | 宿主应用的 Context |
+| `hostLoader` | ClassLoader | 宿主应用的 ClassLoader |
+
+`hostLoader` 已加入解释器的类加载链，因此脚本里可以直接 `import` 宿主应用的类。
+
+## 全局函数
+
+| 来源 | 提供的函数 | 参考 |
+| --- | --- | --- |
+| Hook API | `hookBefore` / `hookAfter` / `hookReplace` / `replaceHook` / `unhook` / `hookMethodBefore` / `hookMethodAfter` / `hookAllMethodsBefore` / `hookAllMethodsAfter` / `hookAllConstructorsBefore` | [Hook API](/plugin/app/api-hook) |
+| 反射 API | `findClass` / `findField` / `getIntField` / `callMethod` / `newInstance` 等 | [反射 API](/plugin/app/api-reflection) |
+| DexKit API | `findClass()` / `findMethod()` / `findField()` 链式查询 | [DexKit API](/plugin/app/api-dexkit) |
+| 工具 API | `log(...)` / `toast(msg)` | 本页下方 |
+| 动态加载 API | `loadJar` / `loadDex` / `loadAar` / `loadApk` / `loadJava` | 本页下方 |
+
+### 日志与提示
+
+```java
+log("插件已加载", hostVerName);   // 多参数以空格拼接，写入 log/ 与 logcat
+toast("已放行");                  // 宿主主线程弹短提示
+```
+
+### 动态加载依赖
+
+把 jar / dex / aar / apk 放进插件目录（通常是 `lib/`）后加载，之后可以直接 `import` 其中的类：
+
+```java
+loadDex("lib/patch.dex");
+loadAar("lib/module.aar");
+loadJar("lib/utils.jar");
+loadApk("lib/plugin.apk");
+loadJava("lib/extra.java");   // 执行另一段 BeanShell 脚本（不能是 main.java 自身）
+```
+
+路径以 `/` 开头视为绝对路径，否则相对插件目录；扩展名可以省略。文件不存在时只写错误日志，不会中断脚本。
+
+## 能力边界
+
+- 插件**没有权限模型**：脚本与宿主应用同进程、同 ClassLoader、同 Context，可以访问宿主能访问的一切。
+- 插件之间**没有沙箱隔离**，共享宿主进程的静态状态。
+- `HookRouter` 是全局单例，Hook 的 `id` 是全局键 —— **不同插件使用相同 id 会互相覆盖**，建议给 id 加上插件前缀。
+
+## 相关
+
+<Cards>
+  <Card icon="rocket" title="编写第一个插件" description="从目录结构到运行验证" href="/plugin/app/getting-started" />
+  <Card icon="anchor" title="Hook API" description="before / after / replace 与 HookParam" href="/plugin/app/api-hook" />
+  <Card icon="bug" title="调试与排错" description="日志、错误文件与常见问题" href="/plugin/app/debugging" />
+</Cards>

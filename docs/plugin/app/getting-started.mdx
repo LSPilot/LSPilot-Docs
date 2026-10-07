@@ -1,0 +1,94 @@
+---
+title: 编写第一个插件
+description: 从创建目录到在目标应用里跑通第一个 Hook。
+icon: Rocket
+---
+
+这一页从一个空目录开始，写出第一个能跑起来的插件。
+
+## 前置条件
+
+- 已完成 [安装](/start/installation)，并授予「所有文件访问权限」；
+- 目标应用已加入项目并在 LSPosed 中勾选作用域；
+- 目标应用至少被启动过一次，使插件目录被创建。
+
+## 方式一：在应用内创建
+
+<Steps>
+  <Step>进入**项目 → 应用**，打开目标应用详情页。</Step>
+  <Step>切到**插件**标签，点击右下角加号。</Step>
+  <Step>填写插件名称、作者、版本与描述，确认创建。</Step>
+  <Step>LSPilot 会生成目录、`info.prop` 与一份 `main.java` 模板，并自动补全 `id` 与 `pkg`。</Step>
+  <Step>打开插件开关，然后强制停止并重启目标应用。</Step>
+</Steps>
+
+也可以直接让 AI 生成：在对话里说「帮我建一个插件，打印登录请求的参数与调用栈」，AI 会调用 `create_plugin` 完成创建与写入。
+
+## 方式二：手动创建目录
+
+```text
+/storage/emulated/0/Android/media/<目标应用包名>/LSPilot/Plugin/HelloPlugin/
+├── info.prop
+└── main.java
+```
+
+`info.prop`：
+
+```properties
+name=HelloPlugin
+author=me
+version=1.0.0
+desc=第一个插件
+```
+
+`main.java`：
+
+```java
+// 顶层代码在插件加载时执行
+log("HelloPlugin 已加载，宿主版本:", hostVerName, "(", hostVerCode, ")");
+toast("HelloPlugin 已加载");
+
+onLoad() {
+    log("onLoad 回调触发");
+}
+
+onUnload() {
+    log("onUnload 回调触发");
+}
+```
+
+创建完成后在应用详情页把开关打开（或新建 `.enabled` 标记文件），再强制停止并重启目标应用。
+
+## 验证运行
+
+1. 重启目标应用后回到 LSPilot，进入**应用详情 → 日志**；
+2. 找到该插件，应该能看到 `HelloPlugin 已加载...`；
+3. 如果脚本有语法错误，会在 `error/` 目录下生成一个错误日志，日志查看器里以红色「错误」图标显示。
+
+## 第一个真正的 Hook
+
+假设通过反编译已经确认网络请求入口在 `com.example.net.ApiClient#request(String)`：
+
+```java
+Class clazz = findClassOrNull("com.example.net.ApiClient", hostLoader);
+
+if (clazz == null) {
+    log("没有找到 ApiClient，请检查类名");
+} else {
+    hookBefore(findMethodExact(clazz, "request", String.class), "demo_request", param -> {
+        log("request 被调用，URL:", param.arg(0));
+    });
+}
+```
+
+<Callout type="warn">
+  不存在 `hookReplace(Class, String, callback)` 这种重载。要替换某个类里的方法，先用 `findMethodExact` 拿到 `Method`，再传给 `hookReplace`。
+</Callout>
+
+## 修改后如何生效
+
+| 改动 | 生效方式 |
+| --- | --- |
+| 切换插件启用开关 | **立即生效**，无需重启目标应用 |
+| 修改 `main.java` 内容 | 需要**强制停止并重启目标应用** |
+| 修改 `info.prop` | 需要重启目标应用（界面上的名称刷新需重新扫描） |

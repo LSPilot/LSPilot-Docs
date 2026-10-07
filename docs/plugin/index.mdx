@@ -1,0 +1,31 @@
+---
+title: 插件开发
+description: 用脚本扩展 LSPilot —— 项目插件与 MCP 插件。
+icon: Puzzle
+---
+
+LSPilot 提供两条扩展路径。它们的运行位置与能力边界完全不同，先分清楚再动手。
+
+| | 项目插件 | MCP 插件 |
+| --- | --- | --- |
+| 运行位置 | **目标应用进程**内 | **LSPilot 进程**内 |
+| 用来做什么 | Hook 目标应用、改参数、改返回值 | 给 AI 提供工具 |
+| 入口文件 | `main.java`（BeanShell） | `main.java`（BeanShell） |
+| 存放位置 | `Android/media/<包名>/LSPilot/Plugin/` | 应用私有目录 `files/mcp_plugins/` |
+| 生效方式 | 强制停止并重启目标应用 | 工具抽屉「重新加载」 |
+| AI 侧函数名 | — | `plugin__<插件>__<工具>` |
+
+如果目标是「让 AI 按我固定的套路去分析」，写 **MCP 插件**；如果目标是「改变目标应用的行为」，写 **项目插件**。
+
+## 两个方向
+
+<Cards>
+  <Card icon="braces" title="项目" description="BeanShell 脚本 + Hook / 反射 / DexKit API，注入目标应用进程执行" href="/plugin/app/introduction" />
+  <Card icon="plug" title="MCP 拓展" description="接入远程 MCP 服务器，或用脚本把分析流程封装成 AI 可调用的工具" href="/plugin/mcp/introduction" />
+</Cards>
+
+## 建议的阅读顺序
+
+**项目**：[总览](/plugin/app/introduction) → [第一个插件](/plugin/app/getting-started) → [生命周期与全局 API](/plugin/app/lifecycle) → 按需查阅 [Hook](/plugin/app/api-hook) / [反射](/plugin/app/api-reflection) / [DexKit](/plugin/app/api-dexkit) → [示例](/plugin/app/examples) → [调试](/plugin/app/debugging)。
+
+**MCP**：[总览](/plugin/mcp/introduction) → [接入服务器](/plugin/mcp/servers) → [内置工具管理](/plugin/mcp/builtin) → [编写 MCP 插件](/plugin/mcp/plugin)。

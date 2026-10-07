@@ -1,0 +1,63 @@
+---
+title: 权限与环境要求
+description: 运行 LSPilot 需要的系统版本、框架、架构与各项权限用途。
+icon: Info
+---
+
+## 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| Xposed 框架 | LSPosed（模块声明 minApiVersion 82、targetApiVersion 102） |
+| Android 版本 | Android 14.0 及以上（模块 minSdk 为 API 33） |
+| 架构 | arm64-v8a（模块只打包该 ABI，x86 与模拟器不支持） |
+| 存储 | 需要「所有文件访问权限」才能读写应用媒体目录 |
+| 网络 | MCP、网页搜索与抓取、终端首次下载环境需要联网 |
+
+当前文档对应 LSPilot **1.2.0**（versionCode 18）。
+
+## 应用内权限
+
+首次启动的引导页会逐项申请：
+
+| 权限 | 用途 | 必需 |
+| --- | --- | --- |
+| 所有文件访问权限 | 读写 `Android/media/<包名>/LSPilot/` 下的插件与日志 | 是 |
+| 读取应用列表 | 展示已安装应用，供选择作用域 | 是 |
+| 通知权限 | 展示分析进度与结果 | 可选 |
+| 麦克风 | AI 对话的语音输入 | 可选 |
+| 悬浮窗权限 | 显示 UI 检视悬浮窗与性能悬浮窗 | 可选 |
+| 安装未知应用 | 安装分析后导出的 APK | 可选 |
+
+<Callout type="info">
+  可选权限不影响核心功能。未授予「所有文件访问权限」时插件目录无法创建，插件功能不可用。
+</Callout>
+
+## 系统权限清单
+
+模块在 AndroidManifest 中声明的权限，供排查时对照：
+
+| 权限 | 说明 |
+| --- | --- |
+| `MANAGE_EXTERNAL_STORAGE` / `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` | 读写媒体目录中的插件与日志 |
+| `QUERY_ALL_PACKAGES` | 读取已安装应用列表 |
+| `INTERNET` / `ACCESS_NETWORK_STATE` | AI 请求、MCP、网页工具 |
+| `POST_NOTIFICATIONS` | 分析进度通知 |
+| `RECORD_AUDIO` | 语音输入 |
+| `SYSTEM_ALERT_WINDOW` | 悬浮窗（检视触发器、性能面板） |
+| `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_DATA_SYNC` | 前台服务保持工具与终端会话运行 |
+| `WAKE_LOCK` | 终端会话保持唤醒 |
+| `REQUEST_INSTALL_PACKAGES` | 安装导出的 APK |
+
+## 目标应用侧
+
+- **作用域**：由你在 LSPosed 与 LSPilot 内共同决定，模块的 `scope.list` 为空（动态作用域）。
+- **注入进程**：可在应用详情页选择主进程 / 子进程 / 所有进程。
+- **Root**：仅「强制停止 / 重启目标应用」与终端的 chroot 模式需要 Root，其余功能不需要。
+
+## 相关
+
+<Cards>
+  <Card icon="download" title="安装与激活" description="下载、激活模块与授予权限的完整步骤" href="/start/installation" />
+  <Card icon="harddrive" title="目录与数据" description="数据分别落在哪些目录" href="/ref/files" />
+</Cards>
